@@ -1,0 +1,12 @@
+编译过程：
+1. qmake -project  =>生成与与文件夹同名的.pro工程文件
+
+2. 编辑.pro文件增加如下代码:
+greaterThan(QT_MAJOR_VERSION,4):QT += widgets
+
+3.qmake => 生成Makefile相关文件
+
+4.mingw32-make  =>生成目标代码
+
+可以对.ui文件进行编译：
+uic -o 目标文件名.h 源文件.ui  => 可生成ui对应的.h文件
