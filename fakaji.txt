@@ -1,0 +1,89 @@
+@ECHO off
+@taskkill /F /IM Dbgview.exe
+@taskkill /F /IM SZYH.ComponentCall.exe
+@taskkill /F /IM TestClient.exe
+@taskkill /F /IM SZYH.RobotControlService.exe
+@taskkill /F /IM SZYH.Ewaa.Daemon.exe
+
+set str0=%~dp0
+@rem 获取旧版文件名称
+cd c:\Server_Complete_*
+set str1=%cd%
+call :show %str1%
+
+@rem 回到安装目录
+cd %str0%
+@rem 删除旧版文件
+if exist C:\%str2% (
+rmdir /q /s C:\%str2%
+echo 已经删除旧版软件%str2%
+) else (
+echo 旧版文件不存在
+)
+
+
+@del C:\szyhLicense.txt
+@rem 删除启动项的快捷方式
+@del C:\Users\Administrator\AppData\Roaming\Microsoft\Windows\"Start Menu"\Programs\Startup\*.lnk
+
+
+@rem 解包
+call C:\"Program Files"\WinRAR\rar x %cd%/Server_Complete*.rar C:\
+cls
+
+
+@rem 获取文件名称
+cd c:\Server_Complete_*
+set str3=%cd%
+call :show %str3%
+echo 解压%str2%完成.
+
+
+@rem 在启动项中增加快捷方式1
+@ECHO Set WshShell = Wscript.CreateObject("Wscript.Shell") >%temp%\tmp.vbs
+@ECHO strAllUsersStartup= WshShell.SpecialFolders("Startup") >>%temp%\tmp.vbs
+@CMD /c "ECHO ^Set MyLink = WshShell.CreateShortcut(strAllUsersStartup ^& "\SZYH.RobotControlService.lnk")" >>%temp%\tmp.vbs"
+@ECHO MyLink.TargetPath = "C:\%str2%\Server_Complete\SZYH.RobotControlService.exe" >>%temp%\tmp.vbs
+@ECHO MyLink.Save >>%temp%\tmp.vbs
+@cscript /nologo %temp%\tmp.vbs
+@DEL /q /s %temp%\tmp.vbs 2>nul 1>nul
+
+@rem 在启动项中增加快捷方式(发卡机)
+@ECHO Set WshShell = Wscript.CreateObject("Wscript.Shell") >%temp%\tmp.vbs
+@ECHO strAllUsersStartup= WshShell.SpecialFolders("Startup") >>%temp%\tmp.vbs
+@CMD /c "ECHO ^Set MyLink = WshShell.CreateShortcut(strAllUsersStartup ^& "\SZYH.ComponentCall.lnk")" >>%temp%\tmp.vbs"
+@ECHO MyLink.TargetPath = "C:\%str2%\Server_Complete\Component\ACT_Complete\SZYH.ComponentCall.exe" >>%temp%\tmp.vbs
+@ECHO MyLink.Save >>%temp%\tmp.vbs
+@cscript /nologo %temp%\tmp.vbs
+@DEL /q /s %temp%\tmp.vbs 2>nul 1>nul
+
+@rem 生成LICENSE文件
+echo 正在打开授权网站请稍后……
+call C:\Users\Administrator\AppData\Roaming\Microsoft\Windows\"Start Menu"\Programs\Startup\SZYH.RobotControlService.lnk
+
+@rem 查询激活码
+start explorer http://192.168.4.83:8080/KeyInfo/Create
+start c:\szyhLicense.txt
+pause
+
+start explorer "http://192.168.4.83:8080/KeyInfo?page=15"
+
+@rem 配置激活码
+set /p input=请输入授权码:
+echo [LICENSE] >> C:\%str2%\Server_Complete\Data\config.ini
+set str=KEY=
+set result=%str%%input%
+echo %result% >> C:\%str2%\Server_Complete\Data\config.ini
+echo ;机器人授权码 >> C:\%str2%\Server_Complete\Data\config.ini
+
+@rem 重启后台程序
+start C:\%str2%\Server_Complete\SZYH.RobotControlService.exe
+start C:\%str2%\Server_Complete\Component\ACT_Complete\SZYH.ComponentCall.exe
+start C:\"Program Files (x86)"\ACT\"F6-30 TEST 4.1"\"F6-30 TEST"\F6_30_TEST.exe
+echo 发卡机程序配置完成
+cd C:\Users\Administrator
+rmdir /q /s %str0%
+
+ :show
+ set str2=%~xn1
+
