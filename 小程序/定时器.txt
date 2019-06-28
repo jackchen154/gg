@@ -1,0 +1,10 @@
+  dingshiqi :function(){
+    //打开定时器,5s到了执行一次回调(不会重复执行)
+    timer = setTimeout(function(){
+      console.log("5秒时间到");
+    },5000);
+  },
+  guandingshiqi :function(){
+    console.log("按下了停止");
+    clearTimeout(timer);
+  },
