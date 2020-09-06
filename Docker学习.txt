@@ -345,6 +345,7 @@ docker inspect nginx1
                 "Propagation": "rprivate"
             }
            ]
+1、停止容器2、宿主机修改文件3、启动容器4、容器内的数据依旧是同步的		   
 安装MySQL实验
 -d 后台运行
 -p 端口映射
@@ -355,5 +356,363 @@ $ docker run -d -p 3310:3306 -v /home/mysql/conf:/etc/mysql/conf.d -v /home/mysq
 # 启动成功之后，我们在本地使用sqlyog来测试一下
 # sqlyog-连接到服务器的3306--和容器内的3306映射 
 # 在本地测试创建一个数据库，查看一下我们映射的路径是否ok！	   
-		   
-		   
+	
+具名和匿名挂载
+    # 匿名挂载
+    -v 容器内路径!
+    $ docker run -d -P --name nginx01 -v /etc/nginx nginx
+    # 查看所有的volume(卷)的情况
+    $ docker volume ls    
+    DRIVER              VOLUME NAME # 容器内的卷名(匿名卷挂载)
+    local               21159a8518abd468728cdbe8594a75b204a10c26be6c36090cde1ee88965f0d0
+    local               b17f52d38f528893dd5720899f555caf22b31bf50b0680e7c6d5431dbda2802c
+    # 这里发现，这种就是匿名挂载，我们在 -v只写了容器内的路径，没有写容器外的路径！
+    # 具名挂载 -P:表示随机映射端口
+    $ docker run -d -P --name nginx02 -v juming-nginx:/etc/nginx nginx
+    9663cfcb1e5a9a1548867481bfddab9fd7824a6dc4c778bf438a040fe891f0ee
+    # 查看所有的volume(卷)的情况
+    $ docker volume ls                  
+    DRIVER              VOLUME NAME
+    local               21159a8518abd468728cdbe8594a75b204a10c26be6c36090cde1ee88965f0d0
+    local               b17f52d38f528893dd5720899f555caf22b31bf50b0680e7c6d5431dbda2802c
+    local               juming-nginx #多了一个名字
+    # 通过 -v 卷名：查看容器内路径
+    # 查看一下这个卷
+    $ docker volume inspect juming-nginx
+    [
+        {
+            "CreatedAt": "2020-05-23T13:55:34+08:00",
+            "Driver": "local",
+            "Labels": null,
+            "Mountpoint": "/var/lib/docker/volumes/juming-nginx/_data", #默认目录
+            "Name": "juming-nginx",
+            "Options": null,
+            "Scope": "local"
+        }
+    ]
+
+所有的docker容器内的卷，没有指定目录的情况下都是在/var/lib/docker/volumes/自定义的卷名/_data下，
+如果指定了目录，docker volume ls 是查看不到的。
+
+区分三种挂载方式
+
+    # 三种挂载： 匿名挂载、具名挂载、指定路径挂载
+    -v 容器内路径            #匿名挂载
+    -v 卷名：容器内路径          #具名挂载
+    -v /宿主机路径：容器内路径 #指定路径挂载 docker volume ls 是查看不到的
+
+拓展：
+
+    # 通过 -v 容器内路径： ro rw 改变读写权限
+    ro #readonly 只读
+    rw #readwrite 可读可写
+    $ docker run -d -P --name nginx05 -v juming:/etc/nginx:ro nginx
+    $ docker run -d -P --name nginx05 -v juming:/etc/nginx:rw nginx
+    # ro 只要看到ro就说明这个路径只能通过宿主机来操作，容器内部是无法操作！	
+
+
+
+
+
+
+Dockerfile
+Dockerfile 就是用来构建docker镜像的构建文件！命令脚本！先体验一下！
+通过这个脚本可以生成镜像，镜像是一层一层的，脚本是一个个的命令，每个命令都是一层！
+
+    # 创建一个dockerfile文件，名字可以随便 建议Dockerfile
+    # 文件中的内容： 指令(大写) + 参数
+    $ vim dockerfile1
+        FROM centos                     # 当前这个镜像是以centos为基础的
+        VOLUME ["volume01","volume02"]     # 挂载卷的卷目录列表(多个目录)
+        CMD echo "-----end-----"        # 输出一下用于测试
+        CMD /bin/bash                    # 默认走bash控制台
+    # 这里的每个命令，就是镜像的一层！
+    # 构建出这个镜像 
+    -f dockerfile1             # f代表file，指这个当前文件的地址(这里是当前目录下的dockerfile1)
+    -t caoshipeng/centos     # t就代表target，指目标目录(注意caoshipeng镜像名前不能加斜杠‘/’)
+    .                         # 表示生成在当前目录下
+    $ docker build -f dockerfile1 -t caoshipeng/centos .
+    Sending build context to Docker daemon   2.56kB
+    Step 1/4 : FROM centos
+    latest: Pulling from library/centos
+    8a29a15cefae: Already exists 
+    Digest: sha256:fe8d824220415eed5477b63addf40fb06c3b049404242b31982106ac204f6700
+    Status: Downloaded newer image for centos:latest
+     ---> 470671670cac
+    Step 2/4 : VOLUME ["volume01","volume02"]             # 卷名列表
+     ---> Running in c18eefc2c233
+    Removing intermediate container c18eefc2c233
+     ---> 623ae1d40fb8
+    Step 3/4 : CMD echo "-----end-----"                    # 输出 脚本命令
+     ---> Running in 70e403669f3c
+    Removing intermediate container 70e403669f3c
+     ---> 0eba1989c4e6
+    Step 4/4 : CMD /bin/bash
+     ---> Running in 4342feb3a05b
+    Removing intermediate container 4342feb3a05b
+     ---> f4a6b0d4d948
+    Successfully built f4a6b0d4d948
+    Successfully tagged caoshipeng/centos:latest
+    # 查看自己构建的镜像
+    $ docker images
+    REPOSITORY          TAG          IMAGE ID            CREATED              SIZE
+    caoshipeng/centos   latest       f4a6b0d4d948        About a minute ago   237MB
+
+    启动自己写的容器镜像
+
+    $ docker run -it f4a6b0d4d948 /bin/bash    # 运行自己写的镜像
+    $ ls -l                                 # 查看目录
+
+这个卷和外部一定有一个同步的目录
+
+查看一下卷挂载
+
+    # docker inspect 容器id
+    $ docker inspect ca3b45913df5
+
+测试一下刚才的文件是否同步出去了！
+这种方式使用的十分多，因为我们通常会构建自己的镜像！
+假设构建镜像时候没有挂载卷，要手动镜像挂载 -v 卷名：容器内路径！		   
+
+数据卷容器
+用命名的容器挂载数据卷！
+    # 测试 启动3个容器，通过刚才自己写的镜像启动
+    # 创建docker01：因为我本机是最新版，故这里用latest，狂神老师用的是1.0如下图
+    $ docker run -it --name docker01 caoshipeng/centos:latest
+    # 查看容器docekr01内容
+    $ ls
+    bin  home   lost+found    opt   run   sys  var
+    dev  lib    media    proc  sbin  tmp  volume01
+    etc  lib64  mnt        root  srv   usr  volume02
+    # 不关闭该容器退出
+    CTRL + Q + P  
+    # 创建docker02: 并且让docker02 继承 docker01
+    $ docker run -it --name docker02 --volumes-from docker01 caoshipeng/centos:latest
+    # 查看容器docker02内容
+    $ ls
+    bin  home   lost+found    opt   run   sys  var
+    dev  lib    media    proc  sbin  tmp  volume01
+    etc  lib64  mnt        root  srv   usr  volume02
+    # 再新建一个docker03同样继承docker01
+    $ docker run -it --name docker03 --volumes-from docker01 caoshipeng/centos:latest
+    $ cd volume01    #进入volume01 查看是否也同步docker01的数据
+    $ ls 
+    docker01.txt
+    # 测试：可以删除docker01，查看一下docker02和docker03是否可以访问这个文件
+    # 测试发现：数据依旧保留在docker02和docker03中没有被删除
+   多个mysql实现数据共享
+    $ docker run -d -p 3306:3306 -v /home/mysql/conf:/etc/mysql/conf.d -v /home/mysql/data:/var/lib/mysql -e MYSQL_ROOT_PASSWORD=123456 --name mysql01 mysql:5.7
+    $ docker run -d -p 3310:3306 -e MYSQL_ROOT_PASSWORD=123456 --name mysql02 --volumes-from mysql01  mysql:5.7
+    # 这个时候，可以实现两个容器数据同步！
+   结论：容器之间的配置信息的传递，数据卷容器的生命周期一直持续到没有容器使用为止。但是一旦你持久化到了本地，这个时候，本地的数据是不会删除的
+   
+DockerFile介绍
+dockerfile是用来构建docker镜像的文件！命令参数脚本！
+构建步骤：
+1、 编写一个dockerfile文件
+2、 docker build 构建称为一个镜像
+3、 docker run运行镜像
+4、 docker push发布镜像（DockerHub 、阿里云仓库)
+
+
+DockerFile构建过程
+基础知识：
+1、每个保留关键字(指令）都是必须是大写字母
+2、执行从上到下顺序
+3、#表示注释
+4、每一个指令都会创建提交一个新的镜像曾，并提交！
+Dockerfile是面向开发的，我们以后要发布项目，做镜像，就需要编写dockerfile文件，这个文件十分简单！
+Docker镜像逐渐成企业交付的标准，必须要掌握！
+DockerFile：构建文件，定义了一切的步骤，源代码
+DockerImages：通过DockerFile构建生成的镜像，最终发布和运行产品。
+Docker容器：容器就是镜像运行起来提供服务。
+DockerFile的指令
+    FROM              #基础镜像，一切从这里开始构建
+    MAINTAINER        #镜像是谁写的， 姓名+邮箱，指定维护者信息
+    RUN               #镜像构建的时候需要运行的命令
+    ADD               #复制文件添加内容 添加同目录，会自动解压
+    WORKDIR           #设置镜像的工作目录
+    VOLUME            #设置卷,挂载主机目录
+    EXPOSE            #指定对外的端口
+    CMD               #指定这个容器启动的时候要运行的命令，只有最后一个会生效，可被替代
+    ENTRYPOINT        #指定这个容器启动的时候要运行的命令，可以追加命令
+    ONBUILD           #当构建一个被继承DockerFile这个时候就会运行onbuild的指令，触发指令
+    COPY              #类似ADD，将我们文件拷贝到镜像中
+    ENV               #构建的时候设置环境变量！
+
+    这是一个官网centeos的dockerfile写法
+    FROM scratch
+    ADD centos-7-x86_64-docker.tar.xz /
+    LABEL \
+        org.label-schema.schema-version="1.0" \
+        org.label-schema.name="CentOS Base Image" \
+        org.label-schema.vendor="CentOS" \
+        org.label-schema.license="GPLv2" \
+        org.label-schema.build-date="20200504" \
+        org.opencontainers.image.title="CentOS Base Image" \
+        org.opencontainers.image.vendor="CentOS" \
+        org.opencontainers.image.licenses="GPL-2.0-only" \
+        org.opencontainers.image.created="2020-05-04 00:00:00+01:00"
+    CMD ["/bin/bash"]
+    Docker Hub 中 99%的镜像都是从这个基础镜像过来的 FROM scratch，然后配置需要的软件和配置来进行构建。
+
+
+实战测试
+    创建一个自己的centos
+    # 1./home下新建dockerfile目录
+    $ mkdir dockerfile
+    # 2. dockerfile目录下新建mydockerfile-centos文件
+    $ vim mydockerfile-centos
+    # 3.编写Dockerfile配置文件
+    FROM centos                            # 基础镜像是官方原生的centos
+    MAINTAINER cao<1165680007@qq.com>     # 作者
+    ENV MYPATH /usr/local                # 配置环境变量的目录 
+    WORKDIR $MYPATH                        # 将工作目录设置为 MYPATH
+    RUN yum -y install vim                # 给官方原生的centos 增加 vim指令
+    RUN yum -y install net-tools        # 给官方原生的centos 增加 ifconfig命令
+    EXPOSE 80                            # 暴露端口号为80
+    CMD echo $MYPATH                    # 输出下 MYPATH 路径
+    CMD echo "-----end----"                
+    CMD /bin/bash                        # 启动后进入 /bin/bash
+    # 4.通过这个文件构建镜像
+    # 命令： docker build -f 文件路径 -t 镜像名:[tag] .
+    $ docker build -f mydockerfile-centos -t mycentos:0.1 .
+
+
+    $ docker images
+    REPOSITORY          TAG                 IMAGE ID            CREATED             SIZE
+    mycentos            0.1                 cbf5110a646d        2 minutes ago       311MB
+    # 6.测试运行
+    $ docker run -it mycentos:0.1         # 注意带上版本号，否则每次都回去找最新版latest
+    $ pwd    
+    /usr/local                            # 与Dockerfile文件中 WORKDIR 设置的 MYPATH 一致
+    $ vim                                # vim 指令可以使用
+    $ ifconfig                             # ifconfig 指令可以使用
+    # docker history 镜像id 查看镜像构建历史步骤
+    $ docker history 镜像id 我们可以列出本地进行的变更历史,平时拿到一个镜像，可以用 “docker history 镜像id” 研究一下是什么做的
+
+    CMD 和 ENTRYPOINT区别
+    CMD              # 指定这个容器启动的时候要运行的命令，只有最后一个会生效，可被替代。
+    ENTRYPOINT       # 指定这个容器启动的时候要运行的命令，可以追加命令
+
+测试cmd
+    # 编写dockerfile文件
+    $ vim dockerfile-test-cmd
+    FROM centos
+    CMD ["ls","-a"]                    # 启动后执行 ls -a 命令
+    # 构建镜像
+    $ docker build  -f dockerfile-test-cmd -t cmd-test:0.1 .
+    # 运行镜像
+    $ docker run cmd-test:0.1        # 由结果可得，运行后就执行了 ls -a 命令
+    .
+    ..
+    .dockerenv
+    bin
+    dev
+    etc
+    home
+    # 想追加一个命令  -l 成为ls -al：展示列表详细数据
+    $ docker run cmd-test:0.1 -l
+    docker: Error response from daemon: OCI runtime create failed: container_linux.go:349: starting container process caused "exec: \"-l\":
+    executable file not found in $PATH": unknown.
+    ERRO[0000] error waiting for container: context canceled 
+    # cmd的情况下 -l 替换了CMD["ls","-l"] 而 -l  不是命令所以报错
+
+测试ENTRYPOINT
+    # 编写dockerfile文件
+    $ vim dockerfile-test-entrypoint
+    FROM centos
+    ENTRYPOINT ["ls","-a"]
+    # 构建镜像
+    $ docker build  -f dockerfile-test-entrypoint -t cmd-test:0.1 .
+    # 运行镜像
+    $ docker run entrypoint-test:0.1
+    .
+    ..
+    .dockerenv
+    bin
+    dev
+    etc
+    home
+    lib
+    lib64
+    lost+found ...
+    # 我们的命令，是直接拼接在我们得ENTRYPOINT命令后面的
+    $ docker run entrypoint-test:0.1 -l
+    total 56
+    drwxr-xr-x   1 root root 4096 May 16 06:32 .
+    drwxr-xr-x   1 root root 4096 May 16 06:32 ..
+    -rwxr-xr-x   1 root root    0 May 16 06:32 .dockerenv
+    lrwxrwxrwx   1 root root    7 May 11  2019 bin -> usr/bin
+    drwxr-xr-x   5 root root  340 May 16 06:32 dev
+    drwxr-xr-x   1 root root 4096 May 16 06:32 etc
+    drwxr-xr-x   2 root root 4096 May 11  2019 home
+    lrwxrwxrwx   1 root root    7 May 11  2019 lib -> usr/lib
+    lrwxrwxrwx   1 root root    9 May 11  2019 lib64 -> usr/lib64 ....
+
+Dockerfile中很多命令都十分的相似，我们需要了解它们的区别，我们最好的学习就是对比他们然后测试效果！
+实战：Tomcat镜像
+1、准备镜像文件
+    准备tomcat 和 jdk 到当前目录，编写好README
+	$ls  >  jdk-8u231-linux-x64.tar.gz apache-tomcat-9.0.35.tar.gz README dokerfile
+2、编写dokerfile
+    $ vim dockerfile
+    FROM centos                                         # 基础镜像centos
+    MAINTAINER cao<1165680007@qq.com>                    # 作者
+    COPY README /usr/local/README                         # 复制README文件
+    ADD jdk-8u231-linux-x64.tar.gz /usr/local/             # 添加jdk，ADD 命令会自动解压
+    ADD apache-tomcat-9.0.35.tar.gz /usr/local/         # 添加tomcat，ADD 命令会自动解压
+    RUN yum -y install vim                                # 安装 vim 命令
+    ENV MYPATH /usr/local                                 # 环境变量设置 工作目录
+    WORKDIR $MYPATH
+    ENV JAVA_HOME /usr/local/jdk1.8.0_231                 # 环境变量： JAVA_HOME环境变量
+    ENV CLASSPATH $JAVA_HOME/lib/dt.jar:$JAVA_HOME/lib/tools.jar
+    ENV CATALINA_HOME /usr/local/apache-tomcat-9.0.35     # 环境变量： tomcat环境变量
+    ENV CATALINA_BASH /usr/local/apache-tomcat-9.0.35
+    # 设置环境变量 分隔符是：
+    ENV PATH $PATH:$JAVA_HOME/bin:$CATALINA_HOME/lib:$CATALINA_HOME/bin     
+    EXPOSE 8080                                         # 设置暴露的端口
+    CMD /usr/local/apache-tomcat-9.0.35/bin/startup.sh && tail -F /usr/local/apache-tomcat-9.0.35/logs/catalina.out                     # 设置默认命令
+
+3、构建镜像
+    # 因为dockerfile命名使用默认命名 因此不用使用-f 指定文件
+    $ docker build -t mytomcat:0.1 .
+
+4、run镜像
+    # -d:后台运行 -p:暴露端口 --name:别名 -v:绑定路径 
+    $ docker run -d -p 8080:8080 --name tomcat01 
+    -v /home/kuangshen/build/tomcat/test:/usr/local/apache-tomcat-9.0.35/webapps/test 
+    -v /home/kuangshen/build/tomcat/tomcatlogs/:/usr/local/apache-tomcat-9.0.35/logs mytomcat:0.1
+
+5、访问测试
+    $ docker exec -it 自定义容器的id /bin/bash
+    $ cul localhost:8080
+
+6、发布项目
+我们以后开发的步骤：需要掌握Dockerfile的编写！我们之后的一切都是使用docker镜像来发布运行！
+发布自己的镜像
+
+    发布到 Docker Hub
+
+1、地址 https://hub.docker.com/
+2、确定这个账号可以登录
+3、登录
+    $ docker login -u 你的用户名 -p 你的密码
+
+4、提交 push镜像
+    # 会发现push不上去，因为如果没有前缀的话默认是push到 官方的library
+    # 解决方法：
+    # 第一种 build的时候添加你的dockerhub用户名，然后在push就可以放到自己的仓库了
+    $ docker build -t kuangshen/mytomcat:0.1 .
+    # 第二种 使用docker tag #然后再次push
+    $ docker tag 容器id kuangshen/mytomcat:1.0 #然后再次push
+    $ docker push kuangshen/mytomcat:1.0
+    发布到 阿里云镜像服务上
+
+看官网 很详细https://cr.console.aliyun.com/repository/
+    $ sudo docker login --username=zchengx registry.cn-shenzhen.aliyuncs.com
+    $ sudo docker tag [ImageId] registry.cn-shenzhen.aliyuncs.com/dsadxzc/cheng:[镜像版本号]
+    # 修改id 和 版本
+    sudo docker tag a5ef1f32aaae registry.cn-shenzhen.aliyuncs.com/dsadxzc/cheng:1.0
+    # 修改版本
+    $ sudo docker push registry.cn-shenzhen.aliyuncs.com/dsadxzc/cheng:[镜像版本号]
