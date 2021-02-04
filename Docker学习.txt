@@ -118,7 +118,7 @@ docker images #查看所有本地主机上的镜像 可以使用docker image ls�
 docker search #搜索镜像
 docker pull #下载镜像 docker image pull
 docker rmi #删除镜像 docker image rm
-
+docker rmi $(docker images -f "dangling=true" -q) 删除<none>:<none>镜像
 jack@ubuntu:/etc/docker$ docker images
 REPOSITORY          TAG                 IMAGE ID            CREATED             SIZE
 ubuntu              latest              4e2eef94cd6b        5 days ago          73.9MB
@@ -1042,7 +1042,6 @@ SpringBoot微服务打包Docker镜像
     $ docker build -t xxxxx:xx  .
 
 5、发布运行
-
 以后我们使用了Docker之后，给别人交付就是一个镜像即可！	
 
 
