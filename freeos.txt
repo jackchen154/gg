@@ -1,0 +1,142 @@
+https://zhuanlan.zhihu.com/p/136448177  //freeos 队列操作
+https://blog.csdn.net/qq_41868901/article/details/104677389   //arduino freeos示例程序
+
+
+#include <Arduino.h>
+#include <ESP32CAN.h>
+#include <CAN_config.h>
+
+CAN_device_t CAN_cfg;               // CAN Config
+unsigned long previousMillis = 0;   // will store last time a CAN Message was send
+const int interval = 1000;          // interval at which send CAN Messages (milliseconds)
+const int rx_queue_size = 10;       // Receive Queue size
+
+
+ 
+void taskOne( void * parameter ){
+    CAN_frame_t rx_frame;
+  Serial.println("start task 1");
+  while(1)
+  {
+  if (xQueueReceive(CAN_cfg.rx_queue, &rx_frame, 3 * portTICK_PERIOD_MS) == pdTRUE) {
+
+    if (rx_frame.FIR.B.FF == CAN_frame_std) {
+      printf("New standard frame");
+    }
+    else {
+      printf("New extended frame");
+    }
+
+    if (rx_frame.FIR.B.RTR == CAN_RTR) {
+      printf(" RTR from 0x%08X, DLC %d\r\n", rx_frame.MsgID,  rx_frame.FIR.B.DLC);
+    }
+    else {
+      printf(" from 0x%08X, DLC %d, Data ", rx_frame.MsgID,  rx_frame.FIR.B.DLC);
+      for (int i = 0; i < rx_frame.FIR.B.DLC; i++) {
+        printf("0x%02X ", rx_frame.data.u8[i]);
+      }
+      printf("\n");
+    }
+  }
+  }
+  Serial.println("Ending task 1");
+  vTaskDelete( NULL );
+}
+
+void setup() {
+  Serial.begin(115200);
+  Serial.println("Basic Demo - ESP32-Arduino-CAN");
+  CAN_cfg.speed = CAN_SPEED_250KBPS;
+  CAN_cfg.tx_pin_id = GPIO_NUM_5;
+  CAN_cfg.rx_pin_id = GPIO_NUM_4;
+  CAN_cfg.rx_queue = xQueueCreate(rx_queue_size, sizeof(CAN_frame_t));
+  // Init CAN Module
+  ESP32Can.CANInit();
+  xTaskCreate(
+              taskOne,          /*任务函数*/
+              "can_jieshou",        /*带任务名称的字符串*/
+              10000,            /*堆栈大小，单位为字节*/
+              NULL,             /*作为任务输入传递的参数*/
+              1,                /*任务的优先级*/
+              NULL);            /*任务句柄*/
+
+}
+
+
+void can_send_std_RTR(uint32_t id)
+{
+    CAN_frame_t tx_frame;
+    tx_frame.FIR.B.FF = CAN_frame_std;
+    tx_frame.FIR.B.RTR = CAN_RTR;
+    tx_frame.MsgID = id;
+    ESP32Can.CANWriteFrame(&tx_frame);
+    printf ("can_send_std_RTR\n");
+}
+
+void can_send_ext_RTR(uint32_t id)
+{
+    CAN_frame_t tx_frame;
+    tx_frame.FIR.B.FF = CAN_frame_ext;
+    tx_frame.FIR.B.RTR = CAN_RTR;
+    tx_frame.MsgID = id;
+    ESP32Can.CANWriteFrame(&tx_frame);
+    printf ("can_send_ext_RTR\n");
+}
+
+
+void can_send_ext_message(unsigned char dlc)
+{
+    CAN_frame_t tx_frame;
+    tx_frame.FIR.B.FF = CAN_frame_ext;
+    tx_frame.MsgID = 0X00182011;
+    tx_frame.FIR.B.DLC = dlc;
+    tx_frame.data.u8[0] = 0x00;
+    tx_frame.data.u8[1] = 0x01;
+    tx_frame.data.u8[2] = 0x02;
+    tx_frame.data.u8[3] = 0x03;
+    tx_frame.data.u8[4] = 0x04;
+    tx_frame.data.u8[5] = 0x05;
+    tx_frame.data.u8[6] = 0x06;
+    tx_frame.data.u8[7] = 0x07;
+    ESP32Can.CANWriteFrame(&tx_frame);
+    printf ("can_send_ext_message\n");
+}
+
+void loop() {
+
+
+
+  unsigned long currentMillis = millis();
+
+  /*/ Receive next CAN frame from queue
+  if (xQueueReceive(CAN_cfg.rx_queue, &rx_frame, 3 * portTICK_PERIOD_MS) == pdTRUE) {
+
+    if (rx_frame.FIR.B.FF == CAN_frame_std) {
+      printf("New standard frame");
+    }
+    else {
+      printf("New extended frame");
+    }
+
+    if (rx_frame.FIR.B.RTR == CAN_RTR) {
+      printf(" RTR from 0x%08X, DLC %d\r\n", rx_frame.MsgID,  rx_frame.FIR.B.DLC);
+    }
+    else {
+      printf(" from 0x%08X, DLC %d, Data ", rx_frame.MsgID,  rx_frame.FIR.B.DLC);
+      for (int i = 0; i < rx_frame.FIR.B.DLC; i++) {
+        printf("0x%02X ", rx_frame.data.u8[i]);
+      }
+      printf("\n");
+    }
+  }*/
+  // Send CAN Message
+//  if (currentMillis - previousMillis >= interval) {
+//    previousMillis = currentMillis;
+//    can_send_ext_message();
+//  }
+
+can_send_ext_RTR(0X00182011);
+delay(2000);
+can_send_ext_RTR(0X0018300D);
+delay(2000);
+}
